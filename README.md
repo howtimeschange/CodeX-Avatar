@@ -1,6 +1,6 @@
-# CodeX分身
+# CodeX Avatar
 
-CodeX分身是一个钉钉个人 AI 代回复与项目反馈处理 worker。它通过 `dws event consume --flatten -f ndjson` 实时监听白名单群消息，先做产品经理式分流，再生成回复草稿、真实回群、进入 Codex 只读评审，或在极窄门禁下交给 Codex 自动修复低风险明确 BUG。
+CodeX Avatar 是一个钉钉个人 AI 代回复与项目反馈处理 worker。它通过 `dws event consume --flatten -f ndjson` 实时监听白名单群消息，先做产品经理式分流，再生成回复草稿、真实回群、进入 Codex 只读评审，或在极窄门禁下交给 Codex 自动修复低风险明确 BUG。
 
 它不是轮询历史消息的脚本，也不是监听到消息就改代码的机器人。所有真实发送、Codex 执行和自动修复都需要显式开关、白名单、风险判断和测试命令。
 
@@ -19,7 +19,7 @@ CodeX分身是一个钉钉个人 AI 代回复与项目反馈处理 worker。它�
 当前项目只依赖 Python 标准库，但运行时需要本机可用的 `dws` CLI；使用 Codex session 回复或代码评审时还需要 `codex` CLI。
 
 ```bash
-cd /Users/xingyicheng/Documents/CodeX分身
+cd /Users/xingyicheng/Documents/CodeX-Avatar
 python3 -m pip install -e .
 ```
 
@@ -49,19 +49,19 @@ cp config/example.json ~/.dws/ai-autoreply/config.json
 把配置里的 `cid_REPLACE_*` 改成真实钉钉群 `openConversationId`，然后先做只读检查：
 
 ```bash
-codex-fenshen --config ~/.dws/ai-autoreply/config.json --config-check
+codex-avatar --config ~/.dws/ai-autoreply/config.json --config-check
 ```
 
 以草稿模式启动所有启用群监听：
 
 ```bash
-codex-fenshen --config ~/.dws/ai-autoreply/config.json --print-command
+codex-avatar --config ~/.dws/ai-autoreply/config.json --print-command
 ```
 
 监听一个群并只打印草稿：
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_group \
   --group cidxxxxxxxx \
   --query "问题,反馈,bug,报错,不能用,需求" \
@@ -71,7 +71,7 @@ codex-fenshen \
 真实发送必须显式 allowlist：
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_group \
   --group cidxxxxxxxx \
   --allow-conversation cidxxxxxxxx \
@@ -98,12 +98,11 @@ codex-fenshen \
 ## 测试
 
 ```bash
-python3 -m py_compile src/codex_fenshen/worker.py tests/test_worker.py
+python3 -m py_compile src/codex_avatar/worker.py tests/test_worker.py
 python3 tests/test_worker.py
-codex-fenshen --config config/example.json --config-check
+codex-avatar --config config/example.json --config-check
 ```
 
 ## 许可证
 
 Apache-2.0
-

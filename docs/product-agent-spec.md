@@ -1,8 +1,8 @@
-# CodeX分身 产品经理型个人代理 Spec
+# CodeX Avatar 产品经理型个人代理 Spec
 
 ## 1. 目标
 
-构建一个和 Codex 连接的钉钉个人代理，也就是 CodeX分身。它持续监听白名单项目群，读取用户反馈，先做产品经理式分流，再决定是直接对话回复、追问补充信息、进入需求评审，还是交给 Codex 做代码评估、修复、测试和交付回群。
+构建一个和 Codex 连接的钉钉个人代理，也就是 CodeX Avatar。它持续监听白名单项目群，读取用户反馈，先做产品经理式分流，再决定是直接对话回复、追问补充信息、进入需求评审，还是交给 Codex 做代码评估、修复、测试和交付回群。
 
 它不是普通自动回复机器人，也不是监听到消息就改代码的脚本。所有外部消息、代码动作、测试证据和交付回复都必须被状态机记录，并且受白名单、模式、风险和验证门禁控制。
 
@@ -282,7 +282,7 @@ stateDiagram-v2
 配置检查：
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --config ~/.dws/ai-autoreply/config.json \
   --config-check
 ```
@@ -290,7 +290,7 @@ codex-fenshen \
 启动监听：
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --config ~/.dws/ai-autoreply/config.json \
   --print-command
 ```
@@ -417,9 +417,9 @@ worker stdout 输出一行一个 JSON：
 
 工程验收：
 
-- `python3 -m py_compile src/codex_fenshen/worker.py tests/test_worker.py`
+- `python3 -m py_compile src/codex_avatar/worker.py tests/test_worker.py`
 - `python3 tests/test_worker.py`
-- `codex-fenshen --config config/example.json --config-check`
+- `codex-avatar --config config/example.json --config-check`
 - `git diff --check`
 
 ## 12. Rollout

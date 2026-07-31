@@ -12,7 +12,7 @@ from contextlib import redirect_stdout
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from codex_fenshen import worker
+from codex_avatar import worker
 
 
 class AutoReplyWorkerTest(unittest.TestCase):

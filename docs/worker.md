@@ -1,6 +1,6 @@
-# CodeX分身 Worker
+# CodeX Avatar Worker
 
-`codex-fenshen` listens to DingTalk personal IM events with
+`codex-avatar` listens to DingTalk personal IM events with
 `dws event consume ... --flatten -f ndjson`, classifies project-group feedback,
 drafts or sends replies, and can route replies through a persistent per-group
 Codex session for memory and read-only local inspection.
@@ -108,7 +108,7 @@ Validate the config and print the exact `dws event consume` commands without
 starting any listener:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --config ~/.dws/ai-autoreply/config.json \
   --config-check
 ```
@@ -116,7 +116,7 @@ codex-fenshen \
 Run all enabled group listeners in draft mode:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --config ~/.dws/ai-autoreply/config.json \
   --print-command
 ```
@@ -142,7 +142,7 @@ To send a connection marker after the listener is ready, set
 Draft replies for messages that @ you:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_at \
   --print-command
 ```
@@ -150,7 +150,7 @@ codex-fenshen \
 Draft replies for one group:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_group \
   --group cidxxxxxxxx \
   --query "找我,帮忙,确认" \
@@ -215,7 +215,7 @@ threshold.
 Reply in a single allowlisted group:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_group \
   --group cidxxxxxxxx \
   --allow-conversation cidxxxxxxxx \
@@ -243,7 +243,7 @@ call.
 Reply to a single allowlisted openDingtalkId:
 
 ```bash
-codex-fenshen \
+codex-avatar \
   --event-key user_im_message_receive_o2o \
   --open-dingtalk-id openxxxxxxxx \
   --allow-sender openxxxxxxxx \
@@ -272,7 +272,7 @@ IDs, model, and base URL.
   <array>
     <string>/usr/bin/python3</string>
   <string>-m</string>
-  <string>codex_fenshen</string>
+  <string>codex_avatar</string>
     <string>--config</string>
     <string>/Users/xingyicheng/.dws/ai-autoreply/config.json</string>
     <string>--print-command</string>
@@ -321,9 +321,9 @@ If you explicitly want cron-style periodic windows, keep event consumption
 bounded:
 
 ```bash
-*/15 * * * * cd /ABS/PATH/TO/CodeX分身 && \
+*/15 * * * * cd /ABS/PATH/TO/CodeX-Avatar && \
   DWS_AI_API_KEY=... DWS_AI_MODEL=... \
-  codex-fenshen \
+  codex-avatar \
     --event-key user_im_message_receive_at \
     --duration 14m \
     >> /tmp/dws-ai-autoreply.out.log 2>> /tmp/dws-ai-autoreply.err.log
