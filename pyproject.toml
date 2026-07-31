@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-fenshen"
+version = "0.1.0"
+description = "CodeX分身: guarded DingTalk personal AI auto-reply and Codex feedback worker"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Yicheng Kim", email = "xingyicheng@gmail.com" }
+]
+keywords = ["dingtalk", "codex", "agent", "auto-reply"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only"
+]
+
+[project.scripts]
+codex-fenshen = "codex_fenshen.worker:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
