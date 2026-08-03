@@ -23,6 +23,10 @@ classifiers = [
 
 [project.scripts]
 codex-avatar = "codex_avatar.worker:main"
+codex-avatar-ui = "codex_avatar.ui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+codex_avatar = ["static/*"]

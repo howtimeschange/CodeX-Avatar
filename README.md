@@ -78,6 +78,18 @@ codex-avatar \
   --send
 ```
 
+## 本地操作界面
+
+启动本地 Web 控制台：
+
+```bash
+codex-avatar-ui --config ~/.dws/ai-autoreply/config.json --open
+```
+
+控制台默认运行在 `http://127.0.0.1:8787/`，可以编辑群配置、保存配置、运行 `config-check`、启动 / 停止 worker，并查看实时日志。`Start Worker` 会拒绝仍包含 `cid_REPLACE_*` 的启用群，避免用样例配置误启动。
+
+本地调试时按 `Ctrl-C` 退出控制台。
+
 ## 模式
 
 | 模式 | 发送回复 | 启动 Codex | 修改代码 |
@@ -99,7 +111,9 @@ codex-avatar \
 
 ```bash
 python3 -m py_compile src/codex_avatar/worker.py tests/test_worker.py
+python3 -m py_compile src/codex_avatar/ui.py tests/test_ui.py
 python3 tests/test_worker.py
+python3 tests/test_ui.py
 codex-avatar --config config/example.json --config-check
 ```
 
