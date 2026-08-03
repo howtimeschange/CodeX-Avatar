@@ -94,18 +94,27 @@ textarea {
   gap: 4px;
 }
 
-.nav-list a {
+.nav-list button {
+  width: 100%;
   padding: 10px 12px;
+  border: 0;
   border-radius: 7px;
+  background: transparent;
   color: #b8c5c0;
+  cursor: pointer;
   font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
   text-decoration: none;
+  text-align: left;
 }
 
-.nav-list a.active,
-.nav-list a:hover {
+.nav-list button.active,
+.nav-list button:hover,
+.nav-list button:focus-visible {
   background: #1a2723;
   color: #ffffff;
+  outline: 0;
 }
 
 .sidebar-footer {
@@ -279,6 +288,10 @@ h2 {
 .panel {
   min-width: 0;
   overflow: hidden;
+}
+
+.view-section[hidden] {
+  display: none;
 }
 
 .panel-head {

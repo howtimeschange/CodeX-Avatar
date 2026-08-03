@@ -1,9 +1,26 @@
 let configModel = null;
 let selectedIndex = 0;
+let activeView = "runtime";
 let dirty = false;
 let lastLogs = [];
 
 const qs = (selector) => document.querySelector(selector);
+const MODE_LABELS = {
+  observe: "观察",
+  draft: "草稿",
+  guarded: "门禁",
+  autofix: "自动修复",
+  send: "发送",
+};
+const REPLY_ENGINE_LABELS = {
+  ai: "AI",
+  codex: "Codex",
+};
+const CLASSIFIER_LABELS = {
+  heuristic: "启发式",
+  hybrid: "混合",
+  ai: "AI",
+};
 
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
@@ -46,7 +63,7 @@ function textToList(value) {
 
 function setDirty(value = true) {
   dirty = value;
-  qs("#saveConfig").textContent = dirty ? "Save Config *" : "Save Config";
+  qs("#saveConfig").textContent = dirty ? "保存配置 *" : "保存配置";
 }
 
 function updateGroup(index, field, value) {
@@ -59,11 +76,11 @@ function renderRuntime(snapshot) {
   const runtime = snapshot.runtime || {};
   const stats = snapshot.stats || {};
   const running = runtime.running;
-  qs("#metricRuntime").textContent = running ? `Running #${runtime.pid}` : "Stopped";
+  qs("#metricRuntime").textContent = running ? `运行中 #${runtime.pid}` : "已停止";
   qs("#metricGroups").textContent = `${stats.enabled || 0}/${stats.groups || 0}`;
   qs("#metricSend").textContent = String(stats.send_enabled || 0);
   qs("#metricCodex").textContent = String(stats.codex_execute || 0);
-  qs("#sideStatusText").textContent = running ? "Worker running" : "Worker stopped";
+  qs("#sideStatusText").textContent = running ? "监听运行中" : "监听已停止";
   qs("#sideStatusDot").classList.toggle("running", running);
 }
 
@@ -90,7 +107,7 @@ function renderGroupsTable() {
       </td>
       <td><input type="checkbox" data-field="send" ${group.send ? "checked" : ""}></td>
       <td><input class="${placeholder ? "placeholder" : ""}" type="text" data-field="group" value="${escapeAttr(groupId)}"></td>
-      <td class="row-actions"><button class="text-button" data-action="delete" type="button">Remove</button></td>
+      <td class="row-actions"><button class="text-button" data-action="delete" type="button">删除</button></td>
     `;
     tr.querySelectorAll("input, select").forEach((control) => {
       control.addEventListener("click", (event) => event.stopPropagation());
@@ -119,7 +136,7 @@ function renderGroupsTable() {
 
 function modeOptions(current) {
   return ["observe", "draft", "guarded", "autofix", "send"]
-    .map((mode) => `<option value="${mode}" ${mode === current ? "selected" : ""}>${mode}</option>`)
+    .map((mode) => `<option value="${mode}" ${mode === current ? "selected" : ""}>${MODE_LABELS[mode]}</option>`)
     .join("");
 }
 
@@ -127,32 +144,32 @@ function renderInspector() {
   const form = qs("#inspectorForm");
   const selected = groups()[selectedIndex];
   if (!selected) {
-    qs("#selectedGroupName").textContent = "No group selected";
-    form.innerHTML = `<p class="notice">Create a group to edit runtime gates.</p>`;
+    qs("#selectedGroupName").textContent = "未选择群";
+    form.innerHTML = `<p class="notice">新建一个群后再编辑运行门禁。</p>`;
     return;
   }
-  qs("#selectedGroupName").textContent = selected.name || selected.group || "Unnamed group";
+  qs("#selectedGroupName").textContent = selected.name || selected.group || "未命名群";
   form.innerHTML = `
-    ${field("Ready message", "ready_message", selected.ready_message || "")}
-    ${field("Repo", "repo", selected.repo || "")}
-    ${field("Query", "query", selected.query || defaults().query || "")}
-    <label>Reply engine
+    ${field("就绪消息", "ready_message", selected.ready_message || "")}
+    ${field("仓库路径", "repo", selected.repo || "")}
+    ${field("监听关键词", "query", selected.query || defaults().query || "")}
+    <label>回复引擎
       <select data-field="reply_engine">
-        ${selectOptions(["ai", "codex"], selected.reply_engine || defaults().reply_engine || "ai")}
+        ${selectOptions(REPLY_ENGINE_LABELS, selected.reply_engine || defaults().reply_engine || "ai")}
       </select>
     </label>
-    <label>Classifier
+    <label>分类器
       <select data-field="classifier">
-        ${selectOptions(["heuristic", "hybrid", "ai"], selected.classifier || defaults().classifier || "heuristic")}
+        ${selectOptions(CLASSIFIER_LABELS, selected.classifier || defaults().classifier || "heuristic")}
       </select>
     </label>
-    <label>Code keywords
+    <label>代码关键词
       <textarea data-list-field="code_keywords">${escapeText(listToText(selected.code_keywords || []))}</textarea>
     </label>
-    <label>Test commands
+    <label>测试命令
       <textarea data-list-field="test_commands">${escapeText(listToText(selected.test_commands || []))}</textarea>
     </label>
-    <label class="field"><span class="field-label">Codex execute</span>
+    <label class="field"><span class="field-label">允许 Codex 执行</span>
       <input type="checkbox" data-field="codex_execute" ${selected.codex_execute ? "checked" : ""}>
     </label>
   `;
@@ -182,9 +199,9 @@ function field(label, key, value) {
   return `<label>${label}<input type="text" data-field="${key}" value="${escapeAttr(value)}"></label>`;
 }
 
-function selectOptions(options, current) {
-  return options
-    .map((item) => `<option value="${item}" ${item === current ? "selected" : ""}>${item}</option>`)
+function selectOptions(labels, current) {
+  return Object.entries(labels)
+    .map(([value, label]) => `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`)
     .join("");
 }
 
@@ -200,6 +217,19 @@ function renderLogs(logs = lastLogs) {
   stream.scrollTop = stream.scrollHeight;
 }
 
+function setActiveView(view) {
+  const valid = ["runtime", "groups", "safety", "logs"];
+  activeView = valid.includes(view) ? view : "runtime";
+  document.querySelectorAll("[data-view-section]").forEach((section) => {
+    section.hidden = section.dataset.viewSection !== activeView;
+  });
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    const active = button.dataset.view === activeView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+}
+
 function render(snapshot) {
   if (snapshot) {
     configModel = clone(snapshot.config);
@@ -211,6 +241,7 @@ function render(snapshot) {
   selectedIndex = Math.max(0, Math.min(selectedIndex, groups().length - 1));
   renderGroupsTable();
   renderInspector();
+  setActiveView(activeView);
 }
 
 function escapeAttr(value) {
@@ -283,7 +314,7 @@ async function stopWorker() {
 function addGroup() {
   groups().push({
     enabled: true,
-    name: "New Group",
+    name: "新群组",
     group: "cid_REPLACE_GROUP",
     project: "",
     repo: "",
@@ -295,10 +326,14 @@ function addGroup() {
   });
   selectedIndex = groups().length - 1;
   setDirty();
+  setActiveView("groups");
   render();
 }
 
 function bindActions() {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => setActiveView(button.dataset.view));
+  });
   qs("#saveConfig").addEventListener("click", () => saveConfig().catch(showError));
   qs("#runCheck").addEventListener("click", () => runCheck().catch(showError));
   qs("#startWorker").addEventListener("click", () => startWorker().catch(showError));

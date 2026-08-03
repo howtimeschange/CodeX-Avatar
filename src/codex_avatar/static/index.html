@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,108 +13,106 @@
           <div class="brand-mark">CX</div>
           <div>
             <strong>CodeX Avatar</strong>
-            <span>Local operator</span>
+            <span>本地操作台</span>
           </div>
         </div>
-        <nav class="nav-list" aria-label="Primary">
-          <a href="#runtime" class="active">Runtime</a>
-          <a href="#groups">Groups</a>
-          <a href="#safety">Safety Gates</a>
-          <a href="#logs">Logs</a>
+        <nav class="nav-list" aria-label="主导航">
+          <button type="button" class="active" data-view="runtime" aria-current="page">运行状态</button>
+          <button type="button" data-view="groups">群配置</button>
+          <button type="button" data-view="safety">安全门禁</button>
+          <button type="button" data-view="logs">运行日志</button>
         </nav>
         <div class="sidebar-footer">
           <span class="status-dot" id="sideStatusDot"></span>
-          <span id="sideStatusText">Loading</span>
+          <span id="sideStatusText">正在加载</span>
         </div>
       </aside>
 
       <main class="workspace">
-        <header class="topbar" id="runtime">
+        <header class="topbar">
           <div>
-            <h1>Operations Console</h1>
-            <p id="configPath">Loading config...</p>
+            <h1>CodeX 分身操作台</h1>
+            <p id="configPath">正在加载配置...</p>
           </div>
           <div class="actions">
-            <button class="button secondary" id="saveConfig">Save Config</button>
-            <button class="button secondary" id="runCheck">Run Config Check</button>
-            <button class="button primary" id="startWorker">Start Worker</button>
-            <button class="button danger" id="stopWorker">Stop Worker</button>
+            <button class="button secondary" id="saveConfig">保存配置</button>
+            <button class="button secondary" id="runCheck">运行配置检查</button>
+            <button class="button primary" id="startWorker">启动监听</button>
+            <button class="button danger" id="stopWorker">停止监听</button>
           </div>
         </header>
 
-        <section class="metrics" aria-label="Runtime metrics">
+        <section class="metrics view-section" data-view-section="runtime" aria-label="运行指标">
           <div class="metric">
-            <span>Runtime</span>
-            <strong id="metricRuntime">Loading</strong>
+            <span>运行状态</span>
+            <strong id="metricRuntime">加载中</strong>
           </div>
           <div class="metric">
-            <span>Enabled groups</span>
+            <span>启用群</span>
             <strong id="metricGroups">0</strong>
           </div>
           <div class="metric">
-            <span>Send enabled</span>
+            <span>允许发送</span>
             <strong id="metricSend">0</strong>
           </div>
           <div class="metric">
-            <span>Codex execute</span>
+            <span>Codex 执行</span>
             <strong id="metricCodex">0</strong>
           </div>
         </section>
 
-        <section class="main-grid">
-          <div class="panel group-panel" id="groups">
-            <div class="panel-head">
-              <div>
-                <h2>Groups</h2>
-                <p>Editable listener configuration</p>
-              </div>
-              <button class="icon-button" id="addGroup" title="Add group" aria-label="Add group">+</button>
-            </div>
-            <div class="table-wrap">
-              <table class="groups-table">
-                <thead>
-                  <tr>
-                    <th>On</th>
-                    <th>Name</th>
-                    <th>Project</th>
-                    <th>Mode</th>
-                    <th>Send</th>
-                    <th>Group ID</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="groupsBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <aside class="panel inspector" id="safety">
-            <div class="panel-head">
-              <div>
-                <h2>Safety Gates</h2>
-                <p id="selectedGroupName">No group selected</p>
-              </div>
-            </div>
-            <form id="inspectorForm" class="form-grid"></form>
-          </aside>
-        </section>
-
-        <section class="panel logs-panel" id="logs">
+        <section class="panel group-panel view-section" data-view-section="groups" hidden>
           <div class="panel-head">
             <div>
-              <h2>Logs</h2>
-              <p>Worker and config-check output</p>
+              <h2>群配置</h2>
+              <p>编辑钉钉监听群与项目路由</p>
+            </div>
+            <button class="icon-button" id="addGroup" title="添加群" aria-label="添加群">+</button>
+          </div>
+          <div class="table-wrap">
+            <table class="groups-table">
+              <thead>
+                <tr>
+                  <th>启用</th>
+                  <th>群名称</th>
+                  <th>项目</th>
+                  <th>模式</th>
+                  <th>发送</th>
+                  <th>群 ID</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="groupsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel inspector view-section" data-view-section="safety" hidden>
+          <div class="panel-head">
+            <div>
+              <h2>安全门禁</h2>
+              <p id="selectedGroupName">未选择群</p>
+            </div>
+          </div>
+          <form id="inspectorForm" class="form-grid"></form>
+        </section>
+
+        <section class="panel logs-panel view-section" data-view-section="logs" hidden>
+          <div class="panel-head">
+            <div>
+              <h2>运行日志</h2>
+              <p>监听服务与配置检查输出</p>
             </div>
             <div class="log-tools">
-              <select id="logFilter" aria-label="Log filter">
-                <option value="">All streams</option>
+              <select id="logFilter" aria-label="日志筛选">
+                <option value="">全部日志</option>
                 <option value="system">system</option>
                 <option value="check">check</option>
                 <option value="error">error</option>
                 <option value="stdout">stdout</option>
                 <option value="stderr">stderr</option>
               </select>
-              <button class="button secondary small" id="refreshLogs">Refresh</button>
+              <button class="button secondary small" id="refreshLogs">刷新</button>
             </div>
           </div>
           <pre id="logStream" class="log-stream"></pre>

@@ -12,6 +12,17 @@ from codex_avatar import ui
 
 
 class DashboardStateTest(unittest.TestCase):
+    def test_static_dashboard_uses_chinese_tab_navigation(self):
+        html = (PROJECT_ROOT / "src" / "codex_avatar" / "static" / "index.html").read_text(encoding="utf-8")
+        app_js = (PROJECT_ROOT / "src" / "codex_avatar" / "static" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("CodeX 分身操作台", html)
+        for view in ("runtime", "groups", "safety", "logs"):
+            self.assertIn(f'data-view="{view}"', html)
+            self.assertIn(f'data-view-section="{view}"', html)
+        self.assertNotIn('href="#groups"', html)
+        self.assertIn("function setActiveView", app_js)
+
     def test_missing_config_uses_default_without_writing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "config.json"
@@ -83,4 +94,3 @@ class DashboardStateTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

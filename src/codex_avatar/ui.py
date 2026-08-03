@@ -35,7 +35,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "groups": [
         {
-            "name": "Win in AI",
+            "name": "赢在 AI",
             "group": "cid_REPLACE_WINYAI",
             "project": "winyai",
             "repo": "",
@@ -46,7 +46,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "enabled": True,
         },
         {
-            "name": "Crawshrimp Feedback",
+            "name": "抓虾反馈群",
             "group": "cid_REPLACE_CRAWSHRIMP",
             "project": "crawshrimp",
             "repo": "/Users/xingyicheng/Documents/crawshrimp",
