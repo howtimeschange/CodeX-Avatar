@@ -19,7 +19,7 @@
         <nav class="nav-list" aria-label="主导航">
           <button type="button" class="active" data-view="runtime" aria-current="page">运行状态</button>
           <button type="button" data-view="groups">群配置</button>
-          <button type="button" data-view="safety">安全门禁</button>
+          <button type="button" data-view="safety">群详情</button>
           <button type="button" data-view="logs">运行日志</button>
         </nav>
         <div class="sidebar-footer">
@@ -31,7 +31,7 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <h1>CodeX 分身操作台</h1>
+            <h1>CodeX 个人代理操作台</h1>
             <p id="configPath">正在加载配置...</p>
           </div>
           <div class="actions">
@@ -61,11 +61,34 @@
           </div>
         </section>
 
+        <section class="settings-grid view-section" data-view-section="runtime" aria-label="默认配置与运行参数">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>全局默认</h2>
+                <p>每个群未单独填写时继承这里</p>
+              </div>
+            </div>
+            <form id="defaultsForm" class="form-grid compact"></form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Worker 参数</h2>
+                <p>启动监听和配置检查时传给本地 worker</p>
+              </div>
+            </div>
+            <pre id="commandPreview" class="command-preview"></pre>
+            <form id="workerForm" class="form-grid compact"></form>
+          </section>
+        </section>
+
         <section class="panel group-panel view-section" data-view-section="groups" hidden>
           <div class="panel-head">
             <div>
               <h2>群配置</h2>
-              <p>编辑钉钉监听群与项目路由</p>
+              <p>编辑当前渠道的监听群与项目路由</p>
             </div>
             <button class="icon-button" id="addGroup" title="添加群" aria-label="添加群">+</button>
           </div>
@@ -74,10 +97,13 @@
               <thead>
                 <tr>
                   <th>启用</th>
+                  <th>渠道</th>
                   <th>群名称</th>
                   <th>项目</th>
                   <th>模式</th>
                   <th>触发</th>
+                  <th>引擎</th>
+                  <th>写权限</th>
                   <th>发送</th>
                   <th>群 ID</th>
                   <th></th>
@@ -91,7 +117,7 @@
         <section class="panel inspector view-section" data-view-section="safety" hidden>
           <div class="panel-head">
             <div>
-              <h2>安全门禁</h2>
+              <h2>群详情与门禁</h2>
               <p id="selectedGroupName">未选择群</p>
             </div>
           </div>

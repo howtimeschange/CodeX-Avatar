@@ -55,7 +55,7 @@ scripts/install.sh \
   "name": "SHEIN API自动上新测试群",
   "group": "cid_REPLACE_LISTINGIFY",
   "project": "listingify",
-  "repo": "/Users/xingyicheng/Documents/Listingify",
+  "repo": "/path/to/Listingify",
   "mode": "guarded",
   "send": true,
   "reply_engine": "codex",

@@ -1,8 +1,35 @@
 {
+  "worker": {
+    "dws_bin": "dws",
+    "dws_timeout": 60,
+    "ready_timeout": 60,
+    "state_file": "~/.dws/ai-autoreply/seen.jsonl",
+    "codex_bin": "codex",
+    "codex_model": "",
+    "codex_log_dir": "~/.dws/ai-autoreply/codex-tasks",
+    "codex_session_dir": "~/.dws/ai-autoreply/codex-sessions",
+    "codex_timeout": 3600,
+    "autofix_min_confidence": 0.85,
+    "base_url": "",
+    "model": "",
+    "system_prompt": "",
+    "temperature": 0.2,
+    "max_tokens": 256,
+    "max_reply_chars": 500,
+    "ai_timeout": 60,
+    "reply_fallback": true,
+    "duration": "",
+    "max_events": 0,
+    "allow_any_target": false
+  },
   "defaults": {
+    "channel": "dingtalk",
     "mode": "draft",
     "profile": "",
+    "project": "",
+    "repo": "",
     "query": "问题,反馈,bug,报错,不能用,需求",
+    "filter_json": "",
     "reply_target": "auto",
     "ready_message": "",
     "send": false,
@@ -13,13 +40,22 @@
     },
     "reply_engine": "codex",
     "classifier": "heuristic",
+    "code_keywords": [],
+    "test_commands": [],
     "codex_execute": false,
     "code_write_policy": "none",
-    "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+    "approval_phrases": [
+      "OK",
+      "好的",
+      "继续",
+      "确认",
+      "可以"
+    ],
     "approval_ttl_minutes": 1440
   },
   "groups": [
     {
+      "channel": "dingtalk",
       "name": "赢在AI",
       "group": "cid_REPLACE_WINYAI",
       "project": "crawshrimp",
@@ -31,7 +67,10 @@
         "enabled": true,
         "limit": 20
       },
-      "code_keywords": ["抓虾", "crawshrimp"],
+      "code_keywords": [
+        "抓虾",
+        "crawshrimp"
+      ],
       "query": "",
       "ready_message": "我在了",
       "codex_execute": false,
@@ -39,10 +78,11 @@
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "抓虾反馈群",
       "group": "cid_REPLACE_CRAWSHRIMP",
       "project": "crawshrimp",
-      "repo": "/Users/xingyicheng/Documents/crawshrimp",
+      "repo": "/path/to/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -50,17 +90,23 @@
         "enabled": true,
         "limit": 20
       },
-      "code_keywords": ["抓虾", "crawshrimp"],
+      "code_keywords": [
+        "抓虾",
+        "crawshrimp"
+      ],
       "query": "",
-      "test_commands": ["python3 -m pytest"],
+      "test_commands": [
+        "python3 -m pytest"
+      ],
       "code_write_policy": "approval",
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "SHEIN API自动上新测试群",
       "group": "cid_REPLACE_LISTINGIFY",
       "project": "listingify",
-      "repo": "/Users/xingyicheng/Documents/Listingify",
+      "repo": "/path/to/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -68,18 +114,24 @@
         "enabled": true,
         "limit": 20
       },
-      "code_keywords": ["Listingify", "SHEIN"],
+      "code_keywords": [
+        "Listingify",
+        "SHEIN"
+      ],
       "query": "",
-      "test_commands": ["npm test"],
+      "test_commands": [
+        "npm test"
+      ],
       "codex_execute": false,
       "code_write_policy": "approval",
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "深绘 AI 上新反馈群",
       "group": "cid_REPLACE_DEEPDRAW",
       "project": "deepdraw",
-      "repo": "/Users/xingyicheng/Documents/Listingify",
+      "repo": "/path/to/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -87,9 +139,14 @@
         "enabled": true,
         "limit": 20
       },
-      "code_keywords": ["深绘", "deepdraw"],
+      "code_keywords": [
+        "深绘",
+        "deepdraw"
+      ],
       "query": "",
-      "test_commands": ["npm test"],
+      "test_commands": [
+        "npm test"
+      ],
       "code_write_policy": "approval",
       "enabled": true
     }
