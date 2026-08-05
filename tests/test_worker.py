@@ -202,7 +202,7 @@ class AutoReplyWorkerTest(unittest.TestCase):
                         "name": "抓虾反馈群",
                         "group": "cid-crawshrimp",
                         "project": "crawshrimp",
-                        "repo": "/Users/xingyicheng/Documents/crawshrimp",
+                        "repo": "/workspace/crawshrimp",
                         "query": "问题,反馈,bug",
                         "ready_message": "我在了",
                     },
@@ -218,17 +218,35 @@ class AutoReplyWorkerTest(unittest.TestCase):
             self.assertEqual(defaults["profile"], "corp:user")
             self.assertEqual(len(groups), 1)
             self.assertEqual(groups[0].name, "抓虾反馈群")
+            self.assertEqual(groups[0].channel, "dingtalk")
             self.assertEqual(groups[0].group_id, "cid-crawshrimp")
             self.assertEqual(groups[0].project, "crawshrimp")
             self.assertEqual(groups[0].ready_message, "我在了")
+
+    def test_load_agent_config_rejects_planned_but_unsupported_channel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "config.json"
+            path.write_text(json.dumps({
+                "defaults": {"channel": "feishu"},
+                "groups": [
+                    {
+                        "name": "飞书测试群",
+                        "group": "oc_demo",
+                    },
+                ],
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "currently supports"):
+                worker.load_agent_config(path)
 
     def test_args_for_group_sets_admission_and_send_allowlist(self):
         base = self.parse(["--config", "config.json"])
         group = worker.GroupConfig(
             name="Listingify 反馈群",
             group_id="cid-listingify",
+            channel="dingtalk",
             project="listingify",
-            repo="/Users/xingyicheng/Documents/Listingify",
+            repo="/workspace/Listingify",
             send=True,
             ready_message="我在了",
         )
@@ -236,6 +254,7 @@ class AutoReplyWorkerTest(unittest.TestCase):
         args = worker.args_for_group(base, {}, group)
 
         self.assertEqual(args.event_key, "user_im_message_receive_group")
+        self.assertEqual(args.channel, "dingtalk")
         self.assertEqual(args.group, "cid-listingify")
         self.assertTrue(args.send)
         self.assertEqual(args.allow_conversation, {"cid-listingify"})
@@ -333,7 +352,7 @@ class AutoReplyWorkerTest(unittest.TestCase):
                         "name": "SHEIN API自动上新测试群",
                         "group": "cid-listingify",
                         "project": "listingify",
-                        "repo": "/Users/xingyicheng/Documents/Listingify",
+                        "repo": "/workspace/Listingify",
                         "code_write_policy": "approval_required",
                         "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
                         "approval_ttl_minutes": 60,
@@ -489,7 +508,7 @@ class AutoReplyWorkerTest(unittest.TestCase):
     def test_heuristic_classifier_maps_feature_to_codex_task(self):
         args = self.parse([
             "--project", "listingify",
-            "--repo", "/Users/xingyicheng/Documents/Listingify",
+            "--repo", "/workspace/Listingify",
             "--test-command", "npm test",
         ])
         event = {
@@ -504,13 +523,13 @@ class AutoReplyWorkerTest(unittest.TestCase):
         self.assertEqual(result.type, "feature")
         self.assertTrue(result.needs_code)
         self.assertEqual(result.risk, "medium")
-        self.assertEqual(result.codex_task["repo"], "/Users/xingyicheng/Documents/Listingify")
+        self.assertEqual(result.codex_task["repo"], "/workspace/Listingify")
         self.assertEqual(result.codex_task["test_commands"], ["npm test"])
 
     def test_code_keyword_gate_blocks_unrelated_group_bug_from_repo(self):
         args = self.parse([
             "--project", "crawshrimp",
-            "--repo", "/Users/xingyicheng/Documents/crawshrimp",
+            "--repo", "/workspace/crawshrimp",
             "--code-keyword", "抓虾,crawshrimp",
         ])
 
@@ -521,14 +540,14 @@ class AutoReplyWorkerTest(unittest.TestCase):
         self.assertFalse(unrelated.needs_code)
         self.assertEqual(related.type, "bug")
         self.assertTrue(related.needs_code)
-        self.assertEqual(related.codex_task["repo"], "/Users/xingyicheng/Documents/crawshrimp")
+        self.assertEqual(related.codex_task["repo"], "/workspace/crawshrimp")
 
     def test_process_event_feature_in_draft_creates_codex_draft_without_ai_reply(self):
         args = self.parse([
             "--event-key", "user_im_message_receive_group",
             "--group", "cid-1",
             "--project", "listingify",
-            "--repo", "/Users/xingyicheng/Documents/Listingify",
+            "--repo", "/workspace/Listingify",
         ])
         event = {
             "type": "user_im_message_receive_group",

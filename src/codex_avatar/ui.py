@@ -22,10 +22,37 @@ from . import worker
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
+    "worker": {
+        "dws_bin": "dws",
+        "dws_timeout": 60,
+        "ready_timeout": 60,
+        "state_file": "~/.dws/ai-autoreply/seen.jsonl",
+        "codex_bin": "codex",
+        "codex_model": "",
+        "codex_log_dir": "~/.dws/ai-autoreply/codex-tasks",
+        "codex_session_dir": "~/.dws/ai-autoreply/codex-sessions",
+        "codex_timeout": 3600,
+        "autofix_min_confidence": 0.85,
+        "base_url": "",
+        "model": "",
+        "system_prompt": "",
+        "temperature": 0.2,
+        "max_tokens": 256,
+        "max_reply_chars": 500,
+        "ai_timeout": 60,
+        "reply_fallback": True,
+        "duration": "",
+        "max_events": 0,
+        "allow_any_target": False,
+    },
     "defaults": {
+        "channel": "dingtalk",
         "mode": "draft",
         "profile": "",
+        "project": "",
+        "repo": "",
         "query": "问题,反馈,bug,报错,不能用,需求",
+        "filter_json": "",
         "reply_target": "auto",
         "ready_message": "",
         "send": False,
@@ -36,6 +63,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         "reply_engine": "codex",
         "classifier": "heuristic",
+        "code_keywords": [],
+        "test_commands": [],
         "codex_execute": False,
         "code_write_policy": "none",
         "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
@@ -43,6 +72,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "groups": [
         {
+            "channel": "dingtalk",
             "name": "赢在AI",
             "group": "cid_REPLACE_WINYAI",
             "project": "crawshrimp",
@@ -61,10 +91,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "enabled": True,
         },
         {
+            "channel": "dingtalk",
             "name": "抓虾反馈群",
             "group": "cid_REPLACE_CRAWSHRIMP",
             "project": "crawshrimp",
-            "repo": "/Users/xingyicheng/Documents/crawshrimp",
+            "repo": "/path/to/crawshrimp",
             "mode": "guarded",
             "reply_engine": "codex",
             "trigger": "mention",
@@ -126,6 +157,7 @@ class DashboardState:
             raise ValueError("config root must be an object")
         data.setdefault("defaults", {})
         data.setdefault("groups", [])
+        data.setdefault("worker", {})
         return data
 
     def save_config(self, config: dict[str, Any]) -> None:
@@ -135,6 +167,10 @@ class DashboardState:
             raise ValueError("config.groups must be an array")
         if not isinstance(config.get("defaults", {}), dict):
             raise ValueError("config.defaults must be an object")
+        if not isinstance(config.get("worker", {}), dict):
+            raise ValueError("config.worker must be an object")
+        if isinstance(config.get("worker"), dict) and "api_key" in config["worker"]:
+            raise ValueError("do not store API keys in config.worker; use DWS_AI_API_KEY in the process environment")
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.config_path.with_suffix(self.config_path.suffix + ".tmp")
         tmp.write_text(
@@ -158,14 +194,59 @@ class DashboardState:
                 out.append(str(item.get("name") or group_id or "unnamed"))
         return out
 
-    def _base_worker_command(self) -> list[str]:
-        return [
+    def _base_worker_command(self, config: dict[str, Any] | None = None) -> list[str]:
+        cmd = [
             self.python_bin,
             "-m",
             "codex_avatar",
             "--config",
             str(self.config_path),
         ]
+        if config is None:
+            config = self.load_config()
+        worker_config = config.get("worker", {})
+        if isinstance(worker_config, dict):
+            self._append_worker_options(cmd, worker_config)
+        return cmd
+
+    @staticmethod
+    def _append_value_flag(cmd: list[str], flag: str, value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return
+        cmd.extend([flag, str(value)])
+
+    def _append_worker_options(self, cmd: list[str], worker_config: dict[str, Any]) -> None:
+        value_flags = {
+            "dws_bin": "--dws-bin",
+            "dws_timeout": "--dws-timeout",
+            "ready_timeout": "--ready-timeout",
+            "state_file": "--state-file",
+            "codex_bin": "--codex-bin",
+            "codex_model": "--codex-model",
+            "codex_log_dir": "--codex-log-dir",
+            "codex_session_dir": "--codex-session-dir",
+            "codex_timeout": "--codex-timeout",
+            "autofix_min_confidence": "--autofix-min-confidence",
+            "base_url": "--base-url",
+            "model": "--model",
+            "system_prompt": "--system-prompt",
+            "temperature": "--temperature",
+            "max_tokens": "--max-tokens",
+            "max_reply_chars": "--max-reply-chars",
+            "ai_timeout": "--ai-timeout",
+            "duration": "--duration",
+            "max_events": "--max-events",
+        }
+        for key, flag in value_flags.items():
+            self._append_value_flag(cmd, flag, worker_config.get(key))
+        if worker_config.get("allow_any_target") is True:
+            cmd.append("--allow-any-target")
+        if worker_config.get("reply_fallback") is False:
+            cmd.append("--no-reply-fallback")
 
     def _subprocess_env(self) -> dict[str, str]:
         env = os.environ.copy()
@@ -280,9 +361,11 @@ class DashboardState:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             config = self.load_config()
+            command = self._base_worker_command(config)
             return {
                 "config_path": str(self.config_path),
                 "config": config,
+                "worker_command": command,
                 "runtime": self.runtime(),
                 "stats": self.stats(config),
                 "logs": [item.to_dict() for item in self._logs],

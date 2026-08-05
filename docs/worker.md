@@ -1,10 +1,11 @@
 # CodeX Avatar Worker
 
-`codex-avatar` listens to DingTalk personal IM events with
-`dws event consume ... --flatten -f ndjson`, classifies project-group feedback,
-drafts or sends replies, and can route replies through a persistent per-group
-Codex session for memory and read-only local inspection. It can also require a
-group approval phrase before any local code modification is attempted.
+`codex-avatar` runs a guarded personal AI agent for chat channels. The current
+implementation listens to DingTalk personal IM events with
+`dws event consume ... --flatten -f ndjson`, classifies group messages, drafts
+or sends replies, and can route replies through a persistent per-group Codex
+session for memory and read-only local inspection. It can also require a group
+approval phrase before any local code modification is attempted.
 
 This is a guarded worker, not a history polling script. It is designed for
 launchd/systemd/cron supervision.
@@ -38,7 +39,7 @@ launchd/systemd/cron supervision.
   command.
 
 See [`product-agent-spec.md`](product-agent-spec.md) for
-the full state machine and product-agent workflow.
+the full state machine and personal-agent workflow.
 
 ## AI Provider
 
@@ -82,21 +83,53 @@ Start from [`../config/example.json`](../config/example.json):
 
 ```json
 {
+  "worker": {
+    "dws_bin": "dws",
+    "state_file": "~/.dws/ai-autoreply/seen.jsonl",
+    "dws_timeout": 60,
+    "ready_timeout": 60,
+    "codex_bin": "codex",
+    "codex_model": "",
+    "codex_log_dir": "~/.dws/ai-autoreply/codex-tasks",
+    "codex_session_dir": "~/.dws/ai-autoreply/codex-sessions",
+    "codex_timeout": 3600,
+    "autofix_min_confidence": 0.85,
+    "base_url": "",
+    "model": "",
+    "system_prompt": "",
+    "temperature": 0.2,
+    "max_tokens": 256,
+    "max_reply_chars": 500,
+    "ai_timeout": 60,
+    "reply_fallback": true,
+    "duration": "",
+    "max_events": 0,
+    "allow_any_target": false
+  },
   "defaults": {
+    "channel": "dingtalk",
     "mode": "draft",
+    "profile": "",
+    "project": "",
+    "repo": "",
     "query": "问题,反馈,bug,报错,不能用,需求",
-      "ready_message": "",
-      "send": false,
-      "reply_engine": "codex",
-      "codex_execute": false,
-      "trigger": "mention",
-      "history_context": {"enabled": true, "limit": 20},
-      "code_write_policy": "none",
-      "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
-      "approval_ttl_minutes": 1440
+    "filter_json": "",
+    "ready_message": "",
+    "send": false,
+    "reply_engine": "codex",
+    "classifier": "heuristic",
+    "code_keywords": [],
+    "test_commands": [],
+    "codex_execute": false,
+    "trigger": "mention",
+    "history_context": {"enabled": true, "limit": 20},
+    "code_write_policy": "none",
+    "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+    "approval_ttl_minutes": 1440
   },
   "groups": [
     {
+      "channel": "dingtalk",
       "name": "赢在AI",
       "group": "cid_REPLACE_WINYAI",
       "project": "winyai",
@@ -108,10 +141,11 @@ Start from [`../config/example.json`](../config/example.json):
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "抓虾反馈群",
       "group": "cid_REPLACE_CRAWSHRIMP",
       "project": "crawshrimp",
-      "repo": "/Users/xingyicheng/Documents/crawshrimp",
+      "repo": "/path/to/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -227,7 +261,7 @@ ask before changing files:
   "name": "SHEIN API自动上新测试群",
   "group": "cid_REPLACE_LISTINGIFY",
   "project": "listingify",
-  "repo": "/Users/xingyicheng/Documents/Listingify",
+  "repo": "/path/to/Listingify",
   "mode": "guarded",
   "send": true,
   "reply_engine": "codex",
@@ -259,7 +293,7 @@ For `autofix`, configure at least one test command:
   "name": "抓虾反馈群",
   "group": "cid_REPLACE_CRAWSHRIMP",
   "project": "crawshrimp",
-  "repo": "/Users/xingyicheng/Documents/crawshrimp",
+  "repo": "/path/to/crawshrimp",
   "mode": "autofix",
   "send": true,
   "codex_execute": true,
@@ -291,7 +325,7 @@ Or enable sending for exactly one configured group:
   "name": "抓虾反馈群",
   "group": "cid_REPLACE_CRAWSHRIMP",
   "project": "crawshrimp",
-  "repo": "/Users/xingyicheng/Documents/crawshrimp",
+  "repo": "/path/to/crawshrimp",
   "mode": "send",
   "send": true,
   "enabled": true
@@ -336,7 +370,7 @@ IDs, model, and base URL.
   <string>-m</string>
   <string>codex_avatar</string>
     <string>--config</string>
-    <string>/Users/xingyicheng/.dws/ai-autoreply/config.json</string>
+    <string>/path/to/.dws/ai-autoreply/config.json</string>
     <string>--print-command</string>
   </array>
   <key>RunAtLoad</key>

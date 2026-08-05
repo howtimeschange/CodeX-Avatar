@@ -1,8 +1,10 @@
-# CodeX Avatar 产品经理型个人代理 Spec
+# CodeX Avatar 个人代理 Spec
 
 ## 1. 目标
 
-构建一个和 Codex 连接的钉钉个人代理，也就是 CodeX Avatar。它持续监听白名单项目群，读取用户反馈，先做产品经理式分流，再决定是直接对话回复、追问补充信息、进入需求评审，还是交给 Codex 做代码评估、修复、测试和交付回群。
+构建一个和 Codex 连接的通用个人代理，也就是 CodeX Avatar。它持续监听白名单项目群或协作群，读取群内消息，先做通用消息分流，再决定是直接对话回复、追问补充信息、进入需求评审，还是交给 Codex 做代码评估、修复、测试和交付回群。
+
+当前版本的可运行渠道是钉钉，底层通过 DWS 事件和消息命令接入。配置契约已经包含 `channel=dingtalk`，后续计划扩展到飞书和更多 IM / 协作渠道。
 
 它不是普通自动回复机器人，也不是监听到消息就改代码的脚本。所有外部消息、代码动作、测试证据和交付回复都必须被状态机记录，并且受白名单、模式、风险和验证门禁控制。
 
@@ -75,7 +77,7 @@ dws event consume user_im_message_receive_group \
   "risk": "low|medium|high",
   "reply_draft": "收到，按 BUG 反馈进入排查，我会先评估改动面和验证路径。",
   "codex_task": {
-    "repo": "/Users/xingyicheng/Documents/crawshrimp",
+    "repo": "/path/to/crawshrimp",
     "goal": "复现并修复用户反馈的明确 BUG，完成测试并给出交付说明。",
     "evidence": [
       "ding_event:<event_id>",
@@ -215,7 +217,7 @@ stateDiagram-v2
 | `approval` | 需要先在群里请求确认词，确认后才允许本地写代码 |
 | `auto` | 预留给受控自动写入；生产项目不建议默认启用 |
 
-项目群推荐组合是 `mode=guarded`、`trigger=mention`、`history_context.enabled=true`、`code_write_policy=approval`。这样平时群聊不会触发回复，@ 到分身时才处理；一旦需要实际改代码，会先回群说明方案并等待确认词。
+项目群推荐组合是 `mode=guarded`、`trigger=mention`、`history_context.enabled=true`、`code_write_policy=approval`。这样平时群聊不会触发回复，@ 到个人代理时才处理；一旦需要实际改代码，会先回群说明方案并等待确认词。
 
 ## 5. 自动修复门禁
 
@@ -246,15 +248,44 @@ stateDiagram-v2
 
 ```json
 {
+  "worker": {
+    "dws_bin": "dws",
+    "state_file": "~/.dws/ai-autoreply/seen.jsonl",
+    "dws_timeout": 60,
+    "ready_timeout": 60,
+    "codex_bin": "codex",
+    "codex_model": "",
+    "codex_log_dir": "~/.dws/ai-autoreply/codex-tasks",
+    "codex_session_dir": "~/.dws/ai-autoreply/codex-sessions",
+    "codex_timeout": 3600,
+    "autofix_min_confidence": 0.85,
+    "base_url": "",
+    "model": "",
+    "system_prompt": "",
+    "temperature": 0.2,
+    "max_tokens": 256,
+    "max_reply_chars": 500,
+    "ai_timeout": 60,
+    "reply_fallback": true,
+    "duration": "",
+    "max_events": 0,
+    "allow_any_target": false
+  },
   "defaults": {
+    "channel": "dingtalk",
     "mode": "draft",
     "profile": "",
+    "project": "",
+    "repo": "",
     "query": "问题,反馈,bug,报错,不能用,需求",
+    "filter_json": "",
     "reply_target": "auto",
     "ready_message": "",
     "send": false,
     "reply_engine": "codex",
     "classifier": "heuristic",
+    "code_keywords": [],
+    "test_commands": [],
     "codex_execute": false,
     "trigger": "mention",
     "history_context": {"enabled": true, "limit": 20},
@@ -264,6 +295,7 @@ stateDiagram-v2
   },
   "groups": [
     {
+      "channel": "dingtalk",
       "name": "赢在AI",
       "group": "<openConversationId>",
       "project": "crawshrimp",
@@ -278,10 +310,11 @@ stateDiagram-v2
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "抓虾反馈群",
       "group": "<openConversationId>",
       "project": "crawshrimp",
-      "repo": "/Users/xingyicheng/Documents/crawshrimp",
+      "repo": "/path/to/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -293,10 +326,11 @@ stateDiagram-v2
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "SHEIN API自动上新测试群",
       "group": "<openConversationId>",
       "project": "listingify",
-      "repo": "/Users/xingyicheng/Documents/Listingify",
+      "repo": "/path/to/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
@@ -307,10 +341,11 @@ stateDiagram-v2
       "enabled": true
     },
     {
+      "channel": "dingtalk",
       "name": "深绘 AI 上新反馈群",
       "group": "<openConversationId>",
       "project": "deepdraw",
-      "repo": "/Users/xingyicheng/Documents/Listingify",
+      "repo": "/path/to/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
       "trigger": "mention",
