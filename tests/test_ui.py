@@ -22,6 +22,10 @@ class DashboardStateTest(unittest.TestCase):
             self.assertIn(f'data-view-section="{view}"', html)
         self.assertNotIn('href="#groups"', html)
         self.assertIn("function setActiveView", app_js)
+        self.assertIn("写代码权限", app_js)
+        self.assertIn("审批确认词", app_js)
+        self.assertIn("读取最近聊天背景", app_js)
+        self.assertIn("TRIGGER_LABELS", app_js)
 
     def test_missing_config_uses_default_without_writing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -32,6 +36,9 @@ class DashboardStateTest(unittest.TestCase):
 
             self.assertIn("defaults", config)
             self.assertIn("groups", config)
+            self.assertEqual(config["defaults"]["trigger"], "mention")
+            self.assertEqual(config["defaults"]["code_write_policy"], "none")
+            self.assertEqual(config["defaults"]["approval_phrases"], ["OK", "好的", "继续", "确认", "可以"])
             self.assertFalse(path.exists())
 
     def test_save_config_round_trip(self):

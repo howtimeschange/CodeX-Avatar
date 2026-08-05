@@ -3,7 +3,8 @@
 `codex-avatar` listens to DingTalk personal IM events with
 `dws event consume ... --flatten -f ndjson`, classifies project-group feedback,
 drafts or sends replies, and can route replies through a persistent per-group
-Codex session for memory and read-only local inspection.
+Codex session for memory and read-only local inspection. It can also require a
+group approval phrase before any local code modification is attempted.
 
 This is a guarded worker, not a history polling script. It is designed for
 launchd/systemd/cron supervision.
@@ -20,12 +21,23 @@ launchd/systemd/cron supervision.
 - `guarded` starts Codex in `read-only` sandbox for assessment only.
 - `autofix` starts Codex in `workspace-write` sandbox only for low-risk,
   high-confidence, confirmed BUGs with a configured repo and test command.
+- `code_write_policy=approval` asks in the DingTalk group before code changes.
+  Until a configured approval phrase is received, the worker only performs
+  read-only exploration and planning.
+- Approval-triggered code changes run in a fresh Codex task with
+  `--sandbox workspace-write`; they still must not commit, push, publish,
+  deploy, edit production configuration, or perform external side effects.
+- `trigger=mention` keeps normal group chatter quiet. For approval groups, the
+  worker adds a separate group-message listener that only accepts approval
+  confirmations and ignores non-confirmation chat.
+- `history_context` can attach recent group messages as background. Historical
+  messages are context only, not executable instructions.
 - Each event is de-duplicated in `~/.dws/ai-autoreply/seen.jsonl`.
 - The worker keeps `dws event consume` stdin open and stops it with SIGTERM, so
   self-created personal subscriptions can be cleaned up by the existing event
   command.
 
-See [`dws-codex-personal-agent-spec.md`](dws-codex-personal-agent-spec.md) for
+See [`product-agent-spec.md`](product-agent-spec.md) for
 the full state machine and product-agent workflow.
 
 ## AI Provider
@@ -73,10 +85,15 @@ Start from [`../config/example.json`](../config/example.json):
   "defaults": {
     "mode": "draft",
     "query": "问题,反馈,bug,报错,不能用,需求",
-    "ready_message": "",
-    "send": false,
-    "reply_engine": "codex",
-    "codex_execute": false
+      "ready_message": "",
+      "send": false,
+      "reply_engine": "codex",
+      "codex_execute": false,
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
+      "code_write_policy": "none",
+      "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+      "approval_ttl_minutes": 1440
   },
   "groups": [
     {
@@ -84,6 +101,8 @@ Start from [`../config/example.json`](../config/example.json):
       "group": "cid_REPLACE_WINYAI",
       "project": "winyai",
       "repo": "",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
       "query": "问题,反馈,bug,报错,不能用,需求",
       "ready_message": "我在了",
       "enabled": true
@@ -95,9 +114,12 @@ Start from [`../config/example.json`](../config/example.json):
       "repo": "/Users/xingyicheng/Documents/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
       "code_keywords": ["抓虾", "crawshrimp"],
-      "query": "抓虾,AI视频,生图,鞋包,报错,不能用,需求",
+      "query": "",
       "test_commands": ["python3 -m pytest"],
+      "code_write_policy": "approval",
       "enabled": true
     }
   ]
@@ -121,9 +143,14 @@ codex-avatar \
   --print-command
 ```
 
-Config mode uses `user_im_message_receive_group` and one consumer per group.
-This matches the DWS event contract: one `event consume` process owns one event
-subscription scope.
+Config mode uses one consumer per configured listening role. `trigger=group`
+uses `user_im_message_receive_group` scoped by `--group`. `trigger=mention`
+uses the global `user_im_message_receive_at` stream and filters locally by
+`conversation_id` because DWS at-events are not group-scoped. When
+`trigger=mention` and `code_write_policy=approval` are both enabled, a second
+approval-only `user_im_message_receive_group --group ...` consumer is started
+so a plain `OK` / `好的` / `继续` / `确认` / `可以` in the group can approve the
+pending code task.
 
 To send a connection marker after the listener is ready, set
 `ready_message` on the group:
@@ -189,6 +216,41 @@ Persistent group Codex session metadata and per-message logs are stored under:
 | `draft` | no | no | no |
 | `guarded` | yes, with `send=true` | yes, with `codex_execute=true` | no |
 | `autofix` | yes, with `send=true` | yes, with `codex_execute=true` | gated low-risk BUG only |
+
+## Code Write Approval
+
+Use this for project groups where the avatar may inspect code freely but must
+ask before changing files:
+
+```json
+{
+  "name": "SHEIN API自动上新测试群",
+  "group": "cid_REPLACE_LISTINGIFY",
+  "project": "listingify",
+  "repo": "/Users/xingyicheng/Documents/Listingify",
+  "mode": "guarded",
+  "send": true,
+  "reply_engine": "codex",
+  "trigger": "mention",
+  "history_context": {"enabled": true, "limit": 20},
+  "codex_execute": true,
+  "code_write_policy": "approval",
+  "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+  "approval_ttl_minutes": 1440,
+  "enabled": true
+}
+```
+
+Flow:
+
+1. A user @mentions the avatar with a code-affecting request.
+2. The avatar replies with read-only findings or a proposed plan and asks for an
+   approval phrase.
+3. The pending approval is stored under
+   `~/.dws/ai-autoreply/pending-approvals/`.
+4. A matching group confirmation starts a fresh Codex `workspace-write` task.
+5. The final group reply reports what changed and what was verified, while
+   making clear that no commit, push, publish, or deploy was done.
 
 For `autofix`, configure at least one test command:
 

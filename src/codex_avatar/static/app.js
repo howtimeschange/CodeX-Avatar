@@ -21,6 +21,15 @@ const CLASSIFIER_LABELS = {
   hybrid: "混合",
   ai: "AI",
 };
+const TRIGGER_LABELS = {
+  mention: "仅 @ 时回复",
+  group: "群消息都处理",
+};
+const CODE_WRITE_POLICY_LABELS = {
+  none: "只读",
+  approval: "群内审批",
+  auto: "自动",
+};
 
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
@@ -105,6 +114,11 @@ function renderGroupsTable() {
           ${modeOptions(group.mode || defaults().mode || "draft")}
         </select>
       </td>
+      <td>
+        <select data-field="trigger">
+          ${selectOptions(TRIGGER_LABELS, group.trigger || defaults().trigger || "group")}
+        </select>
+      </td>
       <td><input type="checkbox" data-field="send" ${group.send ? "checked" : ""}></td>
       <td><input class="${placeholder ? "placeholder" : ""}" type="text" data-field="group" value="${escapeAttr(groupId)}"></td>
       <td class="row-actions"><button class="text-button" data-action="delete" type="button">删除</button></td>
@@ -149,10 +163,16 @@ function renderInspector() {
     return;
   }
   qs("#selectedGroupName").textContent = selected.name || selected.group || "未命名群";
+  const history = historyContext(selected);
   form.innerHTML = `
     ${field("就绪消息", "ready_message", selected.ready_message || "")}
     ${field("仓库路径", "repo", selected.repo || "")}
     ${field("监听关键词", "query", selected.query || defaults().query || "")}
+    <label>触发方式
+      <select data-field="trigger">
+        ${selectOptions(TRIGGER_LABELS, selected.trigger || defaults().trigger || "group")}
+      </select>
+    </label>
     <label>回复引擎
       <select data-field="reply_engine">
         ${selectOptions(REPLY_ENGINE_LABELS, selected.reply_engine || defaults().reply_engine || "ai")}
@@ -168,6 +188,26 @@ function renderInspector() {
     </label>
     <label>测试命令
       <textarea data-list-field="test_commands">${escapeText(listToText(selected.test_commands || []))}</textarea>
+    </label>
+    <label>写代码权限
+      <select data-field="code_write_policy">
+        ${selectOptions(CODE_WRITE_POLICY_LABELS, selected.code_write_policy || defaults().code_write_policy || "none")}
+      </select>
+    </label>
+    <label>审批确认词
+      <textarea data-list-field="approval_phrases">${escapeText(listToText(selected.approval_phrases || defaults().approval_phrases || []))}</textarea>
+    </label>
+    <label>审批有效期（分钟）
+      <input type="number" min="1" data-number-field="approval_ttl_minutes" value="${escapeAttr(selected.approval_ttl_minutes || defaults().approval_ttl_minutes || 1440)}">
+    </label>
+    <label class="field"><span class="field-label">读取最近聊天背景</span>
+      <input type="checkbox" data-history-field="enabled" ${history.enabled ? "checked" : ""}>
+    </label>
+    <label>历史消息条数
+      <input type="number" min="0" max="50" data-history-number-field="limit" value="${escapeAttr(history.limit || 0)}">
+    </label>
+    <label>历史时间窗口（分钟）
+      <input type="number" min="0" data-history-number-field="minutes" value="${escapeAttr(history.minutes || 0)}">
     </label>
     <label class="field"><span class="field-label">允许 Codex 执行</span>
       <input type="checkbox" data-field="codex_execute" ${selected.codex_execute ? "checked" : ""}>
@@ -193,6 +233,28 @@ function renderInspector() {
       setDirty();
     });
   });
+  form.querySelectorAll("[data-number-field]").forEach((control) => {
+    control.addEventListener("input", () => {
+      const numberValue = Number.parseInt(control.value, 10);
+      selected[control.dataset.numberField] = Number.isFinite(numberValue) ? Math.max(1, numberValue) : 1;
+      setDirty();
+    });
+  });
+  form.querySelectorAll("[data-history-field]").forEach((control) => {
+    control.addEventListener("change", () => {
+      selected.history_context = historyContext(selected);
+      selected.history_context[control.dataset.historyField] = control.checked;
+      setDirty();
+    });
+  });
+  form.querySelectorAll("[data-history-number-field]").forEach((control) => {
+    control.addEventListener("input", () => {
+      const numberValue = Number.parseInt(control.value, 10);
+      selected.history_context = historyContext(selected);
+      selected.history_context[control.dataset.historyNumberField] = Number.isFinite(numberValue) ? Math.max(0, numberValue) : 0;
+      setDirty();
+    });
+  });
 }
 
 function field(label, key, value) {
@@ -203,6 +265,18 @@ function selectOptions(labels, current) {
   return Object.entries(labels)
     .map(([value, label]) => `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`)
     .join("");
+}
+
+function historyContext(group) {
+  const value = group.history_context;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return {
+      enabled: Boolean(value.enabled),
+      limit: Number.parseInt(value.limit || 0, 10) || 0,
+      minutes: Number.parseInt(value.minutes || 0, 10) || 0,
+    };
+  }
+  return { enabled: Boolean(value), limit: 20, minutes: 0 };
 }
 
 function renderLogs(logs = lastLogs) {
@@ -319,10 +393,15 @@ function addGroup() {
     project: "",
     repo: "",
     mode: "draft",
+    trigger: defaults().trigger || "mention",
     reply_engine: defaults().reply_engine || "codex",
     query: defaults().query || "",
+    history_context: { enabled: true, limit: 20 },
     send: false,
     codex_execute: false,
+    code_write_policy: defaults().code_write_policy || "none",
+    approval_phrases: clone(defaults().approval_phrases || ["OK", "好的", "继续", "确认", "可以"]),
+    approval_ttl_minutes: defaults().approval_ttl_minutes || 1440,
   });
   selectedIndex = groups().length - 1;
   setDirty();

@@ -1,22 +1,65 @@
 # CodeX Avatar
 
-CodeX Avatar 是一个钉钉个人 AI 代回复与项目反馈处理 worker。它通过 `dws event consume --flatten -f ndjson` 实时监听白名单群消息，先做产品经理式分流，再生成回复草稿、真实回群、进入 Codex 只读评审，或在极窄门禁下交给 Codex 自动修复低风险明确 BUG。
+CodeX Avatar 是一个钉钉个人 AI 代回复与项目反馈处理 worker。它通过 `dws event consume --flatten -f ndjson` 实时监听白名单群消息，先做产品经理式分流，再生成回复草稿、真实回群、进入 Codex 只读评审，或在群内审批后交给 Codex 做本地代码修改。
 
 它不是轮询历史消息的脚本，也不是监听到消息就改代码的机器人。所有真实发送、Codex 执行和自动修复都需要显式开关、白名单、风险判断和测试命令。
 
 ## 能力
 
 - 多群监听：一个启用群对应一个 `dws event consume` 子进程。
+- 触发控制：支持 `trigger=mention`，平时聊天不回复，只有被 @ 到才进入正常回复链路。
+- 历史上下文：可从最近群聊记录读取背景信息，供 Codex session 理解上下文。
 - 白名单准入：事件命中配置的 `conversation_id` 后才会进入 AI 或 Codex。
 - 本地去重：按 `event_id`、`message_id` 或内容哈希记录到 `~/.dws/ai-autoreply/seen.jsonl`。
 - 反馈分类：支持 `question`、`support`、`feature`、`suspected_bug`、`bug`、`ops`、`noise`。
 - 回复引擎：可选 OpenAI-compatible chat endpoint 或每群持久 Codex session。
-- Codex 桥接：`guarded` 只读评审，`autofix` 仅允许低风险明确 BUG 在测试门禁下可写修复。
+- Codex 桥接：`guarded` 只读评审，`code_write_policy=approval` 时先在群里请求确认，再允许本地 `workspace-write` 修改。
 - 审计输出：stdout 一行一个 JSON，记录 draft/sent/skipped/codex_* 等状态。
 
-## 安装
+## 依赖
 
-当前项目只依赖 Python 标准库，但运行时需要本机可用的 `dws` CLI；使用 Codex session 回复或代码评审时还需要 `codex` CLI。
+必需：
+
+- Python 3.10+
+- `dws` CLI：用于 DingTalk 登录、事件消费、消息发送和历史消息读取
+- `codex` CLI：当 `reply_engine=codex` 或需要代码评审/修改时使用
+
+可选：
+
+- OpenAI-compatible API：仅在 `reply_engine=ai` 或 `classifier=ai/hybrid` 时需要，环境变量为 `DWS_AI_API_KEY`、`DWS_AI_MODEL`、`DWS_AI_BASE_URL`
+- macOS launchd：用于 7x24 后台运行
+
+## 一键部署
+
+最小安装会创建隔离 venv、安装本项目、查找并校验 `dws` / `codex`、创建本地配置、运行 `config-check`：
+
+```bash
+cd /Users/xingyicheng/Documents/CodeX-Avatar
+scripts/install.sh
+```
+
+安装并启动 macOS LaunchAgent：
+
+```bash
+scripts/install.sh \
+  --config ~/.dws/ai-autoreply/config.json \
+  --install-launchd \
+  --start
+```
+
+如果 `dws` 或 `codex` 不在 PATH，可以显式传入：
+
+```bash
+scripts/install.sh \
+  --dws-bin ~/.local/bin/dws \
+  --codex-bin /Applications/ChatGPT.app/Contents/Resources/codex
+```
+
+脚本不会自动写入密钥，也不会在配置仍包含 `cid_REPLACE_*` 占位群 ID 时启动后台服务。
+
+## 手动安装
+
+当前 Python 包只依赖标准库，但运行时需要上面的外部 CLI。
 
 ```bash
 cd /Users/xingyicheng/Documents/CodeX-Avatar
@@ -99,11 +142,14 @@ codex-avatar-ui --config ~/.dws/ai-autoreply/config.json --open
 | `guarded` | yes, with `send=true` | yes, with `codex_execute=true` | no |
 | `autofix` | yes, with `send=true` | yes, with `codex_execute=true` | gated low-risk BUG only |
 
-`autofix` 必须同时满足：白名单群、项目和 repo 已配置、`codex_execute=true`、分类为低风险高置信明确 BUG、repo 可访问、至少一条测试命令，并且消息不涉及权限、支付、生产配置、删除、发布、凭证等高风险事项。
+推荐项目群使用 `trigger=mention` 和 `code_write_policy=approval`：平时群聊不会回复；需要改代码时先在群里发方案，等待 `OK / 好的 / 继续 / 确认 / 可以` 这类确认词。确认前只做只读探查，确认后只允许本地改代码，不会自动 commit、push、发布或部署。
+
+`autofix` 是旧的自动修复模式，必须同时满足：白名单群、项目和 repo 已配置、`codex_execute=true`、分类为低风险高置信明确 BUG、repo 可访问、至少一条测试命令，并且消息不涉及权限、支付、生产配置、删除、发布、凭证等高风险事项。
 
 ## 文档
 
 - [Worker 使用说明](docs/worker.md)
+- [部署说明](docs/deployment.md)
 - [产品代理状态机](docs/product-agent-spec.md)
 - [配置样例](config/example.json)
 
@@ -114,6 +160,7 @@ python3 -m py_compile src/codex_avatar/worker.py tests/test_worker.py
 python3 -m py_compile src/codex_avatar/ui.py tests/test_ui.py
 python3 tests/test_worker.py
 python3 tests/test_ui.py
+bash -n scripts/install.sh
 codex-avatar --config config/example.json --config-check
 ```
 

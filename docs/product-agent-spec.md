@@ -11,9 +11,9 @@
 - 监听多个项目群：抓虾、Listingify、深绘 AI 上新等。
 - 读到反馈后分类：咨询、操作问题、需求、疑似 BUG、明确 BUG、运维/权限/发布、噪声。
 - 能通过对话解决的，直接在群里回复。
-- 需要代码判断的，自动进入 Codex 评审/实现流程。
+- 需要代码判断的，自动进入 Codex 评审/审批流程。
 - Codex 先评估改动面，必要时回群追问或转人工确认。
-- 确认是 BUG 且风险可控时，自动修改、跑测试、输出证据。
+- 群内确认后，才允许在本地仓库做必要代码修改、跑测试、输出证据。
 - 完成后回群交付：修了什么、验证了什么、是否已发布或待发布。
 
 ## 2. 总体架构
@@ -26,10 +26,14 @@ flowchart LR
   C -- "no" --> D["Dialogue Reply"]
   C -- "yes" --> E["Codex Bridge / Read-only Review"]
   E --> F["Change Scope Review"]
-  F --> G{"safe autofix?"}
-  G -- "no" --> H["Ask / Human Gate"]
-  G -- "yes" --> I["Codex Fix + Tests"]
+  F --> G{"approval required?"}
+  G -- "yes" --> H["Ask Group Approval"]
+  H --> I["Approved Codex Fix + Tests"]
+  G -- "no" --> L{"safe autofix?"}
+  L -- "no" --> M["Ask / Human Gate"]
+  L -- "yes" --> I
   H --> J["Delivery Reporter"]
+  M --> J
   I --> J
   D --> J
   J --> K["DWS Group Reply"]
@@ -50,6 +54,9 @@ dws event consume user_im_message_receive_group \
 
 - 配置里一个启用群对应一个 `dws event consume` 子进程。
 - 每个子进程只订阅一个 `openConversationId`。
+- `trigger=mention` 使用 `user_im_message_receive_at` 全局 @ 事件，并在 worker 内按 `conversation_id` 过滤。
+- `trigger=group` 使用 `user_im_message_receive_group --group <openConversationId>`。
+- 若 `trigger=mention` 且 `code_write_policy=approval`，会额外启动一个审批专用群消息监听器，只识别确认词，不处理普通闲聊。
 - 启动后等待 stderr 中的 `[event] ready ...`，再认定监听可用。
 - 即使 DWS 已按 `--group` 过滤，worker 仍会再次检查事件里的 `conversation_id` 是否在准入集合里。
 - 非白名单群消息在任何 AI 调用、Codex 调用和回复发送前丢弃。
@@ -130,7 +137,10 @@ Codex Bridge 的职责：
 
 - 把群消息、项目、仓库路径、分类结果、验收标准和测试命令写入 task bundle。
 - 在 `guarded` 模式下，用 `codex exec --sandbox read-only` 做评审，不允许改文件。
+- 在 `code_write_policy=approval` 下，先保存待审批任务并回群请求确认词；未确认前不改文件。
+- 审批确认后，用独立 Codex 任务和 `--sandbox workspace-write` 在本地仓库做最小修改。
 - 在 `autofix` 模式下，只有通过门禁才用 `codex exec --sandbox workspace-write`。
+- 审批和自动修复路径都禁止 commit、push、发布、部署、生产配置修改、密钥访问和外部副作用。
 - Codex prompt 强制先输出改动面评估，再决定 `NEEDS_INFO`、`BLOCKED` 或 `FIXED`。
 - 监听进程本身不直接编辑项目仓库；代码动作只发生在 Codex 子任务中。
 
@@ -160,10 +170,13 @@ stateDiagram-v2
   dialogue_reply --> delivered: send enabled
   dialogue_reply --> drafted: send disabled
   classified --> review_planned: feature/suspected_bug/bug needs code
-  review_planned --> needs_human: missing repo/tests/info or high risk
-  review_planned --> codex_review: guarded
+  review_planned --> needs_human: missing repo/info or high risk
+  review_planned --> codex_review: guarded read-only
+  codex_review --> awaiting_approval: code_write_policy=approval
+  awaiting_approval --> approved_write: group approval phrase
+  approved_write --> fixed: Codex modified local code
   review_planned --> codex_autofix: autofix gates passed
-  codex_review --> needs_human: change requires confirmation
+  codex_review --> needs_human: change unclear or unsafe
   codex_review --> delivered: assessment or follow-up sent
   codex_autofix --> fixed: Codex modified code
   fixed --> verified: configured tests pass
@@ -179,6 +192,7 @@ stateDiagram-v2
 - `received -> admitted` 必须命中群白名单。
 - `classified -> dialogue_reply` 必须满足 `needs_code=false`。
 - `review_planned -> codex_autofix` 必须满足低风险、明确 BUG、高置信、repo 可用、测试命令存在、显式开启 `codex_execute`。
+- `awaiting_approval -> approved_write` 必须收到当前群的配置确认词，且审批未过期。
 - `fixed -> verified` 必须有当前轮测试证据。
 - `verified -> delivered` 不能把“本地已修复”说成“线上已发布”。
 
@@ -192,6 +206,16 @@ stateDiagram-v2
 | `autofix` | yes | yes | yes, if `send=true` | yes | yes | only gated low-risk BUG |
 
 默认模式是 `draft`。历史兼容的 `send` 会被视为 `guarded + send=true`。
+
+`code_write_policy` 是独立于模式的写代码权限策略：
+
+| 策略 | 含义 |
+|---|---|
+| `none` | 只能只读评审和回复，不进入写代码阶段 |
+| `approval` | 需要先在群里请求确认词，确认后才允许本地写代码 |
+| `auto` | 预留给受控自动写入；生产项目不建议默认启用 |
+
+项目群推荐组合是 `mode=guarded`、`trigger=mention`、`history_context.enabled=true`、`code_write_policy=approval`。这样平时群聊不会触发回复，@ 到分身时才处理；一旦需要实际改代码，会先回群说明方案并等待确认词。
 
 ## 5. 自动修复门禁
 
@@ -231,15 +255,25 @@ stateDiagram-v2
     "send": false,
     "reply_engine": "codex",
     "classifier": "heuristic",
-    "codex_execute": false
+    "codex_execute": false,
+    "trigger": "mention",
+    "history_context": {"enabled": true, "limit": 20},
+    "code_write_policy": "none",
+    "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+    "approval_ttl_minutes": 1440
   },
   "groups": [
     {
       "name": "赢在AI",
       "group": "<openConversationId>",
-      "project": "winyai",
-      "repo": "",
-      "mode": "draft",
+      "project": "crawshrimp",
+      "repo": "/path/to/crawshrimp",
+      "mode": "guarded",
+      "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
+      "code_keywords": ["抓虾", "crawshrimp"],
+      "code_write_policy": "approval",
       "ready_message": "我在了",
       "enabled": true
     },
@@ -250,19 +284,26 @@ stateDiagram-v2
       "repo": "/Users/xingyicheng/Documents/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
       "code_keywords": ["抓虾", "crawshrimp"],
-      "query": "抓虾,AI视频,生图,鞋包,报错,不能用,需求",
+      "query": "",
       "test_commands": ["python3 -m pytest"],
+      "code_write_policy": "approval",
       "enabled": true
     },
     {
-      "name": "Listingify / SHEIN API 测试群",
+      "name": "SHEIN API自动上新测试群",
       "group": "<openConversationId>",
       "project": "listingify",
       "repo": "/Users/xingyicheng/Documents/Listingify",
       "mode": "guarded",
-      "query": "SHEIN,上新,草稿,发布,类目,尺码,报错,需求",
+      "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
+      "query": "",
       "test_commands": ["npm test"],
+      "code_write_policy": "approval",
       "enabled": true
     },
     {
@@ -271,8 +312,12 @@ stateDiagram-v2
       "project": "deepdraw",
       "repo": "/Users/xingyicheng/Documents/Listingify",
       "mode": "guarded",
-      "query": "深绘,AI上新,建档,尺码表,图片,类目,报错,需求",
+      "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {"enabled": true, "limit": 20},
+      "query": "",
       "test_commands": ["npm test"],
+      "code_write_policy": "approval",
       "enabled": true
     }
   ]
@@ -301,6 +346,7 @@ codex-avatar \
 
 ```bash
 dws event consume user_im_message_receive_group --group <cid> --flatten -f ndjson
+dws event consume user_im_message_receive_at --flatten -f ndjson
 ```
 
 回复只用：
@@ -310,6 +356,17 @@ dws chat message send \
   --group <cid> \
   --text "<message>" \
   --uuid "<stable uuid>" \
+  --format json
+```
+
+历史上下文只用：
+
+```bash
+dws chat message list \
+  --group <cid> \
+  --time "<event local time>" \
+  --direction older \
+  --limit 20 \
   --format json
 ```
 
