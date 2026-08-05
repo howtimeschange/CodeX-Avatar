@@ -6,20 +6,36 @@
     "reply_target": "auto",
     "ready_message": "",
     "send": false,
+    "trigger": "mention",
+    "history_context": {
+      "enabled": true,
+      "limit": 20
+    },
     "reply_engine": "codex",
     "classifier": "heuristic",
-    "codex_execute": false
+    "codex_execute": false,
+    "code_write_policy": "none",
+    "approval_phrases": ["OK", "好的", "继续", "确认", "可以"],
+    "approval_ttl_minutes": 1440
   },
   "groups": [
     {
       "name": "赢在AI",
       "group": "cid_REPLACE_WINYAI",
-      "project": "winyai",
-      "repo": "",
-      "mode": "draft",
+      "project": "crawshrimp",
+      "repo": "/path/to/crawshrimp",
+      "mode": "guarded",
       "reply_engine": "codex",
-      "query": "问题,反馈,bug,报错,不能用,需求",
+      "trigger": "mention",
+      "history_context": {
+        "enabled": true,
+        "limit": 20
+      },
+      "code_keywords": ["抓虾", "crawshrimp"],
+      "query": "",
       "ready_message": "我在了",
+      "codex_execute": false,
+      "code_write_policy": "approval",
       "enabled": true
     },
     {
@@ -29,21 +45,34 @@
       "repo": "/Users/xingyicheng/Documents/crawshrimp",
       "mode": "guarded",
       "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {
+        "enabled": true,
+        "limit": 20
+      },
       "code_keywords": ["抓虾", "crawshrimp"],
-      "query": "抓虾,AI视频,生图,鞋包,报错,不能用,需求",
+      "query": "",
       "test_commands": ["python3 -m pytest"],
+      "code_write_policy": "approval",
       "enabled": true
     },
     {
-      "name": "Listingify / SHEIN API 测试群",
+      "name": "SHEIN API自动上新测试群",
       "group": "cid_REPLACE_LISTINGIFY",
       "project": "listingify",
       "repo": "/Users/xingyicheng/Documents/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {
+        "enabled": true,
+        "limit": 20
+      },
       "code_keywords": ["Listingify", "SHEIN"],
-      "query": "SHEIN,上新,草稿,发布,类目,尺码,报错,需求",
+      "query": "",
       "test_commands": ["npm test"],
+      "codex_execute": false,
+      "code_write_policy": "approval",
       "enabled": true
     },
     {
@@ -53,9 +82,15 @@
       "repo": "/Users/xingyicheng/Documents/Listingify",
       "mode": "guarded",
       "reply_engine": "codex",
+      "trigger": "mention",
+      "history_context": {
+        "enabled": true,
+        "limit": 20
+      },
       "code_keywords": ["深绘", "deepdraw"],
-      "query": "深绘,AI上新,建档,尺码表,图片,类目,报错,需求",
+      "query": "",
       "test_commands": ["npm test"],
+      "code_write_policy": "approval",
       "enabled": true
     }
   ]
