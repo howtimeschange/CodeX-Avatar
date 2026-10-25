@@ -1,7 +1,5 @@
 # CodeX Avatar
 
-**[访问抓虾 Harness 官网 · 查看介绍与下载](https://harness.crawshrimp.com/)**
-
 CodeX Avatar 是一个通用的个人 AI 代理。它用于把个人常驻的聊天渠道接入 Codex 和 AI 回复能力，当前已支持钉钉渠道：通过 `dws event consume --flatten -f ndjson` 实时监听白名单群消息，先做通用消息分流，再生成回复草稿、真实回群、进入 Codex 只读评审，或在群内审批后交给 Codex 做本地代码修改。
 
 项目定位是“个人代理”，不是固定业务角色。钉钉是当前第一个渠道，后续计划接入飞书和更多 IM / 协作渠道。
